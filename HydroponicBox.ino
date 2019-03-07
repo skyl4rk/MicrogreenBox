@@ -1,21 +1,21 @@
 // Pump Timer with Sensor Control and Morse Readout
-// Capacitive Soil Moisture Sensor with AOUT to pin 1
-// Pump will turn off if soil becomes moist during pumping.
-// Exhaust fan thermostat based on tray temp sensor
-// Circulation fan runs when exhaust fan is off
-// Heat mats thermostat based on air temp sensor
-// Paul VandenBosch, 20190220
+// Repeating Pump Cycle
+// Paul VandenBosch, 20190306
 
-#define HEATSET 325     // Sensor value to turn on heater below this temperature setting
-#define AIRTEMPSET 300  // Sensor value to turn on fan above this temperature setting
+#define HEATSET 315     // Sensor value to turn on heater below this temperature setting
+#define AIRTEMPSET 312  // Sensor value to turn on exhaust fan above this temperature setting
 #define DRYSOILSET 460  // Moisture sensor Value that triggers watering, soil is dry at this value
 #define WETSOILSET 400  // Moisture sensor Value that shuts off water pump
 
-#define WATERPUMPTIME 60   // Seconds to run water pump for each watering event
+#define WATERPUMPDELAY 120   // Seconds to run water pump for each watering event
+#define WATERPUMPCYCLE 6   //  Hours between watering cycles
+
+/*
 #define FIRSTWATERING 5    // Day after start for the first watering event
 #define SECONDWATERING 40  // Day after start for the first watering event
 #define THIRDWATERING 40   // Day after start for the first watering event
 #define OVERFLOWDAYS 40    // Days after which the crop will be completed
+*/
 
 #define HEATRELAYPIN 4  // Pin used for heat relay  
 #define CIRCRELAYPIN 5  // Pin used for circulation fan relay
@@ -26,20 +26,27 @@
 #define BOXSENSORPIN 2  // Pin used for heat sensor in box for air temperature
 #define MOISTUREPIN 1   // Analog pin used for moisture sensor
 #define BUTTONPIN 12    // Pin used to start manual pump by grounding it
+#define PUMPBUTTONPIN 11  // Pin used to turn on pump
+
 
 int moistureSensor = analogRead(MOISTUREPIN);
 int heatSensor = analogRead(TRAYSENSORPIN);
 int airTempSensor = analogRead(BOXSENSORPIN);
 int fan1Toggle = 0;
+int waterToggle = 1;
 
 unsigned long dayMs = 86400000;
 unsigned long hourMs = 3600000;
 unsigned long minuteMs = 60000;
 
-unsigned long waterPumpTime = WATERPUMPTIME * 1000.;
+unsigned long waterPumpDelay = WATERPUMPDELAY * 1000.;
+unsigned long waterPumpCycle = WATERPUMPCYCLE * hourMs; 
+unsigned long waterStartTime = 0;
+/*
 unsigned long firstWatering = FIRSTWATERING * dayMs;
 unsigned long secondWatering = SECONDWATERING * dayMs; 
 unsigned long thirdWatering = THIRDWATERING *dayMs;
+*/
 
 unsigned long currentMillis;
 
@@ -163,6 +170,7 @@ void setup() {
   Serial.begin(9600);
   
   pinMode(BUTTONPIN, INPUT_PULLUP);
+  pinMode(PUMPBUTTONPIN, INPUT_PULLUP);
   pinMode(MOISTUREPIN, INPUT);
   pinMode(TRAYSENSORPIN, INPUT);
   pinMode(BOXSENSORPIN, INPUT);
@@ -170,6 +178,7 @@ void setup() {
   pinMode(HEATRELAYPIN, OUTPUT);
   pinMode(FANRELAYPIN, OUTPUT);
   pinMode(CIRCRELAYPIN, OUTPUT);
+
   
   // ****** Morse Beacon Begins ******
   pinMode(morseLEDpin, OUTPUT) ;
@@ -185,6 +194,21 @@ void loop() {
 
 // PUMP ACTUATION
 
+if (waterToggle == 1 && digitalRead(PUMPBUTTONPIN)) {
+      digitalWrite(PUMPRELAYPIN, HIGH);
+      digitalWrite(HEATRELAYPIN, LOW);
+      digitalWrite(morseLEDpin, HIGH);
+      waterStartTime = currentMillis;
+      waterToggle = 0;
+      delay(waterPumpDelay);
+      digitalWrite(morseLEDpin, LOW);
+}
+
+if (currentMillis - waterStartTime > waterPumpCycle) {
+  waterToggle = 1;
+}
+
+/*
   if (currentMillis > firstWatering) {
     digitalWrite(PUMPRELAYPIN, HIGH);
   }
@@ -208,6 +232,8 @@ void loop() {
     thirdWatering = OVERFLOWDAYS * dayMs;
     digitalWrite(PUMPRELAYPIN, LOW);
   }
+*/
+
   
 // FAN CONTROL
 
@@ -233,8 +259,10 @@ void loop() {
   Serial.println("CIRCULATION FAN OFF");
   }
   else {
-  digitalWrite(CIRCRELAYPIN, HIGH);
-  Serial.println("CIRCULATION FAN ON");
+    if (airTempSensor > AIRTEMPSET - 8){
+      digitalWrite(CIRCRELAYPIN, HIGH);
+      Serial.println("CIRCULATION FAN ON");
+  }
   }
 
 // HEAT MAT CONTROL
@@ -255,9 +283,9 @@ void loop() {
     digitalWrite(PUMPRELAYPIN, HIGH);
     Serial.println("");
     Serial.print("Manual Engagement of Pump by Button for ");
-    Serial.print(WATERPUMPTIME);
+    Serial.print(WATERPUMPDELAY);
     Serial.println(" Seconds Run Time");
-    delay(waterPumpTime);
+    delay(waterPumpDelay);
     digitalWrite(PUMPRELAYPIN, LOW);
   }
 
@@ -274,18 +302,25 @@ void loop() {
     char moistureMessage[21]; // enough to hold all numbers up to 64-bits
     char heat0Message[21]; // enough to hold all numbers up to 64-bits
     char airTempMessage[21]; // enough to hold all numbers up to 64-bits
+    char pumpMessage[21];
     itoa(moistureSensor, moistureMessage, 10);
     itoa(heatSensor, heat0Message, 10);
     itoa(airTempSensor, airTempMessage, 10);
+    int hoursToPump = ((waterStartTime + waterPumpCycle - currentMillis) / hourMs);
+    itoa (hoursToPump, pumpMessage, 10);
     Serial.println("Sending Morse");
-    sendmsg("M ");
-    sendmsg(moistureMessage) ;
-    delay(1000);
+//    sendmsg("M ");
+//    sendmsg(moistureMessage) ;
+//    delay(1000);
     sendmsg("H ");
     sendmsg(heat0Message);
     delay(1000);
     sendmsg("A ");
     sendmsg(airTempMessage);
+    delay(1000);
+    sendmsg("P ");
+    sendmsg(pumpMessage);
+    delay(1000);
     Serial.println("");
     //sendmsg("K6HX/B CM87") ;// original
     delay(1000) ;
@@ -324,4 +359,6 @@ void loop() {
   Serial.print("Box Temperature in F: ");
   int airF = airTempSensor / 4.25;
   Serial.println(airF);
+  Serial.print("Hours to next Pump Cycle: ");
+  Serial.println((waterStartTime + waterPumpCycle - currentMillis) / hourMs);
 }
