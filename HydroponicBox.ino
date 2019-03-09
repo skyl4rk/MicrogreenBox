@@ -2,10 +2,13 @@
 // Repeating Pump Cycle
 // Paul VandenBosch, 20190306
 
-#define HEATSET 315     // Sensor value to turn on heater below this temperature setting
-#define AIRTEMPSET 312  // Sensor value to turn on exhaust fan above this temperature setting
+#define HEATSET 320     // Sensor value to turn on heater below this temperature setting
+#define AIRTEMPSET 310  // Sensor value to turn on exhaust fan above this temperature setting
+#define AIRTEMPOFFSET 5 // Circulation fan will start x number below AIRTEMPSET for exhaust fan
 #define DRYSOILSET 460  // Moisture sensor Value that triggers watering, soil is dry at this value
 #define WETSOILSET 400  // Moisture sensor Value that shuts off water pump
+#define EXHAUSTFANCYCLETIME 600000 // ms between exhaust fan recurring runs
+#define EXHAUSTFANDELAY 6000 // ms to run exhaust fan on recurring runs
 
 #define WATERPUMPDELAY 120   // Seconds to run water pump for each watering event
 #define WATERPUMPCYCLE 6   //  Hours between watering cycles
@@ -49,6 +52,7 @@ unsigned long thirdWatering = THIRDWATERING *dayMs;
 */
 
 unsigned long currentMillis;
+unsigned long recurringFanStart = EXHAUSTFANCYCLETIME;
 
 
 // Simple Arduino Morse Beacon
@@ -259,10 +263,20 @@ if (currentMillis - waterStartTime > waterPumpCycle) {
   Serial.println("CIRCULATION FAN OFF");
   }
   else {
-    if (airTempSensor > AIRTEMPSET - 8){
+    if (airTempSensor > AIRTEMPSET - AIRTEMPOFFSET){
       digitalWrite(CIRCRELAYPIN, HIGH);
       Serial.println("CIRCULATION FAN ON");
   }
+  }
+
+// EXHAUST FAN RECURRING OPERATION
+
+  if (currentMillis > recurringFanStart) {
+    digitalWrite(FANRELAYPIN, HIGH);
+    Serial.println ("RECURRING EXHAUST FAN ON");
+    recurringFanStart = currentMillis + EXHAUSTFANCYCLETIME;
+    delay(EXHAUSTFANDELAY);
+    digitalWrite(FANRELAYPIN, LOW);
   }
 
 // HEAT MAT CONTROL
