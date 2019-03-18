@@ -2,16 +2,16 @@
 // Repeating Pump Cycle
 // Paul VandenBosch, 20190306
 
-#define HEATSET 320     // Sensor value to turn on heater below this temperature setting
-#define AIRTEMPSET 310  // Sensor value to turn on exhaust fan above this temperature setting
+#define HEATSET 325     // Sensor value to turn on heater below this temperature setting
+#define AIRTEMPSET 300  // Sensor value to turn on exhaust fan above this temperature setting
 #define AIRTEMPOFFSET 5 // Circulation fan will start x number below AIRTEMPSET for exhaust fan
 #define DRYSOILSET 460  // Moisture sensor Value that triggers watering, soil is dry at this value
 #define WETSOILSET 400  // Moisture sensor Value that shuts off water pump
 #define EXHAUSTFANCYCLETIME 600000 // ms between exhaust fan recurring runs
 #define EXHAUSTFANDELAY 6000 // ms to run exhaust fan on recurring runs
 
-#define WATERPUMPDELAY 120   // Seconds to run water pump for each watering event
-#define WATERPUMPCYCLE 6   //  Hours between watering cycles
+#define WATERPUMPDELAY 90   // Seconds to run water pump for each watering event
+#define WATERPUMPCYCLE 4   //  Hours between watering cycles
 
 /*
 #define FIRSTWATERING 5    // Day after start for the first watering event
@@ -206,6 +206,7 @@ if (waterToggle == 1 && digitalRead(PUMPBUTTONPIN)) {
       waterToggle = 0;
       delay(waterPumpDelay);
       digitalWrite(morseLEDpin, LOW);
+      digitalWrite(PUMPRELAYPIN, LOW);
 }
 
 if (currentMillis - waterStartTime > waterPumpCycle) {
@@ -243,15 +244,19 @@ if (currentMillis - waterStartTime > waterPumpCycle) {
 
   if (airTempSensor > AIRTEMPSET) {
     fan1Toggle = 1;
-    Serial.println("EXHAUST FAN ON");
+    Serial.print("EXHAUST FAN ON: ");
+    Serial.println(airTempSensor);
   }
   else {
     fan1Toggle = 0;
-    Serial.println("EXHAUST FAN OFF");
+    Serial.print("EXHAUST FAN OFF: ");
+    Serial.println(airTempSensor);
   }
 
   if (fan1Toggle == 1){
     digitalWrite(FANRELAYPIN, HIGH);
+//    Serial.print("CIRCULATION FAN OFF: ");
+//    Serial.println(airTempSensor);
   }
   else {
     digitalWrite(FANRELAYPIN, LOW);
@@ -260,12 +265,19 @@ if (currentMillis - waterStartTime > waterPumpCycle) {
 // CIRCULATION FAN CONTROL
   if (digitalRead(FANRELAYPIN)) {
   digitalWrite(CIRCRELAYPIN, LOW);
-  Serial.println("CIRCULATION FAN OFF");
+  Serial.print("CIRCULATION FAN OFF: ");
+  Serial.println(airTempSensor);
   }
   else {
     if (airTempSensor > AIRTEMPSET - AIRTEMPOFFSET){
       digitalWrite(CIRCRELAYPIN, HIGH);
-      Serial.println("CIRCULATION FAN ON");
+      Serial.print("CIRCULATION FAN ON: ");
+      Serial.println(airTempSensor);
+  }
+  else {
+    digitalWrite(CIRCRELAYPIN, LOW);
+    Serial.print("CIRCULATION FAN OFF: ");
+      Serial.println(airTempSensor);
   }
   }
 
@@ -283,11 +295,13 @@ if (currentMillis - waterStartTime > waterPumpCycle) {
 
   if (heatSensor < HEATSET) {
     digitalWrite(HEATRELAYPIN, HIGH);
-    Serial.println("HEAT MATS ON");
+    Serial.print("HEAT MATS ON: ");
+    Serial.println(heatSensor);
   }
   else {
     digitalWrite(HEATRELAYPIN, LOW);
-    Serial.println("HEAT MATS OFF");
+    Serial.print("HEAT MATS OFF: ");
+    Serial.println(heatSensor);
   }
 
 // BUTTON SENSOR
@@ -305,9 +319,9 @@ if (currentMillis - waterStartTime > waterPumpCycle) {
 
 // MOISTURE SENSOR PUMP LOCKOUT
 
-  if (moistureSensor < WETSOILSET) {     // turn off pump if soil is wet
-    digitalWrite(PUMPRELAYPIN, LOW);
-  }
+//  if (moistureSensor < WETSOILSET) {     // turn off pump if soil is wet
+//    digitalWrite(PUMPRELAYPIN, LOW);
+//  }
 
 
     // ****** Morse Beacon Begins ******
@@ -337,7 +351,7 @@ if (currentMillis - waterStartTime > waterPumpCycle) {
     delay(1000);
     Serial.println("");
     //sendmsg("K6HX/B CM87") ;// original
-    delay(1000) ;
+//    delay(1000) ;
     // ****** Morse Beacon Ends ******
 
 
