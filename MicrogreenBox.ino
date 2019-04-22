@@ -1,10 +1,13 @@
+// MicrogreenBox
+// Controller for a microgreen grow chamber using a flood and drain pump, seedling mat heaters, 
+// pc fan ventilation and LED strip lights to automate microgreen production.
 
 #define PUMPONTIME 60000         // Run pump for X milliseconds - 90 seconds is 90000
 #define PUMPOFFTIME 21600000     // Pause pump for X milliseconds - 6 hours is 21600000
 #define LIGHTONTIME 57600000     // Run light for X milliseconds - 16 hours is 57600000
 #define LIGHTOFFTIME 28800000    // Pause light for X milliseconds - 8 hours is 28800000
 #define LIGHTSTARTTIME 432000000 // Wait X milliseconds before starting light - 5 days is 432000000
-#define HEATSETPOINT 340         // Thermistor setting below which heater is turned on
+#define HEATSETPOINT 330         // Thermistor setting below which heater is turned on
 #define HYSTERESIS 10            // HEATSETPOINT + HYSTERESIS is when the heat turns off and the fan turns on
 
 #define HEATRELAYPIN 4           // Heat relay pin number
@@ -96,13 +99,13 @@ void loop()
     light.Update();
   }
 
-  // Read thermistor 10 times and take the average to stabilize reading and reduce relay chatter
-  int average = 0;
-  for (int i=0; i < 10; i++) {
+  // Read thermistor 100 times and take the average to reduce sensor readout variation and reduce relay chatter
+  long average = 0;
+  for (int i=0; i < 100; i++) {
   average = average + analogRead(THERMISTORPIN);
-  delay(100);
+  delay(10);
   }
-  average = average / 10;
+  average = average / 100;
 
   // Check thermistor and start heat if below set point
   if(average < HEATSETPOINT && digitalRead(HEATRELAYPIN) == LOW){
@@ -111,21 +114,25 @@ void loop()
     }
   if(average > HEATSETPOINT + HYSTERESIS && digitalRead(HEATRELAYPIN) == HIGH){
     digitalWrite(HEATRELAYPIN, LOW);
-    Serial.print(average); Serial.println("Heat Off -------------");
+    Serial.print(average); Serial.println(" Heat Off -------------");
     }
   
   // Check thermistor and shut down fan if below set point, start fan if above set point + hysterisis 
   if(average > HEATSETPOINT + HYSTERESIS && digitalRead(FANRELAYPIN) == LOW){
     digitalWrite(FANRELAYPIN, HIGH);
-    Serial.print(average); Serial.println("Fan On ----------------");
+    Serial.print(average); Serial.println(" Fan On ----------------");
   }
   if(average < HEATSETPOINT + HYSTERESIS - HYSTERESIS && digitalRead(FANRELAYPIN) == HIGH){
     digitalWrite(FANRELAYPIN, LOW);
-    Serial.print(average); Serial.println("Fan Off");
+    Serial.print(average); Serial.println(" Fan Off");
   }
 
   // DEBUG
+//  Serial.print("Pin 0:"); Serial.print(analogRead(0)); Serial.print(" Pin 2: "); Serial.println(analogRead(2));
+    
+  // Serial.print("Ave: "); 
   Serial.print(average);
+  
   if(digitalRead(HEATRELAYPIN)){
     Serial.println(" HEAT ON");
   }
