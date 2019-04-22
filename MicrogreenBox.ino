@@ -4,8 +4,8 @@
 #define LIGHTONTIME 57600000     // Run light for X milliseconds - 16 hours is 57600000
 #define LIGHTOFFTIME 28800000    // Pause light for X milliseconds - 8 hours is 28800000
 #define LIGHTSTARTTIME 432000000 // Wait X milliseconds before starting light - 5 days is 432000000
-#define HEATSETPOINT 355         // Thermistor setting below which heater is turned on
-#define HYSTERESIS 10             // FANSETPOINT + HYSTERESIS is when the heat turns off and the fan turns on
+#define HEATSETPOINT 340         // Thermistor setting below which heater is turned on
+#define HYSTERESIS 10            // HEATSETPOINT + HYSTERESIS is when the heat turns off and the fan turns on
 
 #define HEATRELAYPIN 4           // Heat relay pin number
 #define FANRELAYPIN 5            // Fan relay pin number
