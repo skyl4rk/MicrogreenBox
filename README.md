@@ -3,7 +3,6 @@ Arduino Controller for a Microgreen Grow Box, with heater, exhaust vent, lightin
 This system provides a ventilated, temperature controlled box which is secure from insects and rodents, and automates watering of a flood and drain watering system.
 
 This code is under development and will likely change soon.
-Some features not yet tested!
 
 Features include:
 
@@ -26,7 +25,7 @@ Sensors:
 Tray thermistor (nominal 10k ohms) to 3.3V and analog pin 0 with 10k pulldown resistor from pin 0 to ground. 
 
 Display:
-
+Pin 13 is used to flash the thermistor sensor readout in morse code.
 
 Relays and Devices:
 

@@ -2,13 +2,13 @@
 // Controller for a microgreen grow chamber using a flood and drain pump, seedling mat heaters, 
 // pc fan ventilation and LED strip lights to automate microgreen production.
 
-#define PUMPONTIME 60000         // Run pump for X milliseconds - 90 seconds is 90000
-#define PUMPOFFTIME 21600000     // Pause pump for X milliseconds - 6 hours is 21600000
-#define LIGHTONTIME 57600000     // Run light for X milliseconds - 16 hours is 57600000
-#define LIGHTOFFTIME 28800000    // Pause light for X milliseconds - 8 hours is 28800000
-#define LIGHTSTARTTIME 432000000 // Wait X milliseconds before starting light - 5 days is 432000000
-#define HEATSETPOINT 320         // Thermistor setting below which heater is turned on
-#define HYSTERESIS 10            // HEATSETPOINT + HYSTERESIS is when the heat turns off and the fan turns on
+#define HEATSETPOINT 320         // Thermistor setting below which heater is turned on, unit is a sensor setting, not a temperature
+#define HYSTERESIS 10            // HEATSETPOINT + HYSTERESIS is when the heat turns off and the fan turns on, unit is a sensor setting, not a temperature
+#define PUMPONTIME 60            // Seconds. Run pump for X seconds - example: 60 seconds
+#define PUMPOFFTIME 6            // Hours. Pause pump for X hours - example: 6 hours
+#define LIGHTONTIME 16           // Hours. Run light for X hours - example: 16 hours
+#define LIGHTOFFTIME 8           // Hours. Pause light for X hours - example: 8 hours
+#define LIGHTSTARTTIME 5         // Days. Wait X days before starting light cycle - example: 5 days
 
 #define HEATRELAYPIN 4           // Heat relay pin number
 #define FANRELAYPIN 5            // Fan relay pin number
@@ -18,6 +18,16 @@
 #define BUTTONPIN 12             // Button grounds out this pin, NOTE: pin mode is INPUT_PULLUP
 #define THERMISTORPIN 0          // Thermistor pin number, put thermistor at seed level in sunflower tray
                                  // Note: thermistor is connected to 3.3V and with 10k ohm resistor to ground
+
+const unsigned long msDay = 86400000;  // Number of milliseconds in a day: 86400000
+const unsigned long msHour = 3600000;  // Number of milliseconds in an hour: 3600000
+const unsigned long msMinute = 60000;  // Number of milliseconds in a minute: 60000
+
+unsigned long msPumpOnTime = PUMPONTIME * 1000;
+unsigned long msPumpOffTime = PUMPOFFTIME * msHour; 
+unsigned long msLightOnTime = LIGHTONTIME * msHour;
+unsigned long msLightOffTime = LIGHTOFFTIME * msHour;
+unsigned long msLightStartTime = LIGHTSTARTTIME * msDay;
 
 // Declare the class RelayTimer
 
@@ -70,8 +80,8 @@ class RelayTimer
 };
 
 // Create instances of the class RelayTimer:
-RelayTimer pump(PUMPRELAYPIN, PUMPONTIME, PUMPOFFTIME);
-RelayTimer light(LIGHTRELAYPIN, LIGHTONTIME, LIGHTOFFTIME);
+RelayTimer pump(PUMPRELAYPIN, msPumpOnTime, msPumpOffTime);
+RelayTimer light(LIGHTRELAYPIN, msLightOnTime, msLightOffTime);
 
 // Simple Arduino Morse Beacon
 // ****** Morse Beacon Begins ******
@@ -197,7 +207,7 @@ void setup()
 
   // INITIAL PUMP RUN ON RESET
   digitalWrite(PUMPRELAYPIN, HIGH);
-  delay(PUMPONTIME);
+  delay(msPumpOnTime);
   digitalWrite(PUMPRELAYPIN, LOW);
 
   // ****** Morse Beacon Begins ******
@@ -213,7 +223,7 @@ void loop()
   pump.Update();
 
   // Start light timer after start time delay (stay dark during germination)
-  if(millis() > LIGHTSTARTTIME){
+  if(millis() > msLightStartTime){
     light.Update();
   }
 
@@ -263,7 +273,7 @@ void loop()
     digitalWrite(HEATRELAYPIN, LOW);  // Turn off heat during pump activation
     digitalWrite(FANRELAYPIN, LOW);   // Turn off fan during pump activation
     digitalWrite(PUMPRELAYPIN, HIGH); // Run pump for period defined in PUMPONTIME
-    delay(PUMPONTIME);
+    delay(msPumpOnTime);
     digitalWrite(PUMPRELAYPIN, LOW);
   }
 
