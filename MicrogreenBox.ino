@@ -22,8 +22,9 @@
 const unsigned long msDay = 86400000;  // Number of milliseconds in a day: 86400000
 const unsigned long msHour = 3600000;  // Number of milliseconds in an hour: 3600000
 const unsigned long msMinute = 60000;  // Number of milliseconds in a minute: 60000
+const unsigned long msSecond = 1000;   // Number of milliseconds in a second: 1000
 
-unsigned long msPumpOnTime = PUMPONTIME * 1000;
+unsigned long msPumpOnTime = PUMPONTIME * msSecond;
 unsigned long msPumpOffTime = PUMPOFFTIME * msHour; 
 unsigned long msLightOnTime = LIGHTONTIME * msHour;
 unsigned long msLightOffTime = LIGHTOFFTIME * msHour;
@@ -206,6 +207,7 @@ void setup()
   pinMode(FANRELAYPIN, OUTPUT);
 
   // INITIAL PUMP RUN ON RESET
+  Serial.print("Initial Pump Run for ms: "); Serial.println(msPumpOnTime);
   digitalWrite(PUMPRELAYPIN, HIGH);
   delay(msPumpOnTime);
   digitalWrite(PUMPRELAYPIN, LOW);
