@@ -2,13 +2,19 @@
 // Controller for a microgreen grow chamber using a flood and drain pump, seedling mat heaters, 
 // pc fan ventilation and LED strip lights to automate microgreen production.
 
-#define HEATSETPOINT 320         // Thermistor setting below which heater is turned on, unit is a sensor setting, not a temperature
+#define HEATSETPOINT 322         // Thermistor setting below which heater is turned on, unit is a sensor setting, not a temperature
 #define HYSTERESIS 10            // HEATSETPOINT + HYSTERESIS is when the heat turns off and the fan turns on, unit is a sensor setting, not a temperature
 #define PUMPONTIME 60            // Seconds. Run pump for X seconds - example: 60 seconds
-#define PUMPOFFTIME 6            // Hours. Pause pump for X hours - example: 6 hours
+// #define PUMPOFFTIME 6         // Hours. Pause pump for X hours - example: 6 hours
 #define LIGHTONTIME 16           // Hours. Run light for X hours - example: 16 hours
 #define LIGHTOFFTIME 8           // Hours. Pause light for X hours - example: 8 hours
 #define LIGHTSTARTTIME 5         // Days. Wait X days before starting light cycle - example: 5 days
+
+#define GROWPHASE 3              // Day. The day on which the germination phase ends and the grow phase begines - example: Day 3
+#define HARVESTPHASE 9           // Day. The day on which the harvest phase begins - example: Day 9
+#define GERMINATIONPUMPOFF 6     // Hours. Pause pump for X hours - example: 6 hours
+#define GROWPUMPOFF 8            // Hours. Pause pump for X hours - example: 6 hours
+#define HARVESTPUMPOFF 32         // Hours. Pause pump for X hours - example: 6 hours
 
 #define HEATRELAYPIN 4           // Heat relay pin number
 #define FANRELAYPIN 5            // Fan relay pin number
@@ -25,22 +31,27 @@ const unsigned long msMinute = 60000;  // Number of milliseconds in a minute: 60
 const unsigned long msSecond = 1000;   // Number of milliseconds in a second: 1000
 
 unsigned long msPumpOnTime = PUMPONTIME * msSecond;
-unsigned long msPumpOffTime = PUMPOFFTIME * msHour; 
 unsigned long msLightOnTime = LIGHTONTIME * msHour;
 unsigned long msLightOffTime = LIGHTOFFTIME * msHour;
 unsigned long msLightStartTime = LIGHTSTARTTIME * msDay;
+
+unsigned long msGrowPhase = GROWPHASE * msDay;
+unsigned long msHarvestPhase = HARVESTPHASE * msDay;
+unsigned long msGerminationPumpOffTime = GERMINATIONPUMPOFF * msHour; 
+unsigned long msGrowPumpOffTime = GROWPUMPOFF * msHour; 
+unsigned long msHarvestPumpOffTime = HARVESTPUMPOFF * msHour; 
 
 // Declare the class RelayTimer
 
 class RelayTimer
 {
-  // Class Member Variables
-  int relayPin;    // the number of the relay pin
+  // Class member variables
+  int relayPin;             // the number of the relay pin
   unsigned long OnTime;     // milliseconds of on-time
   unsigned long OffTime;    // milliseconds of off-time
 
   // These maintain the current state
-  int relayState;                 // relayState used to set the relay 
+  int relayState;                      // relayState used to set the relay 
   unsigned long relayPreviousMillis;   // will store last time relay was updated
 
   // Constructor - creates a RelayTimer 
@@ -81,8 +92,12 @@ class RelayTimer
 };
 
 // Create instances of the class RelayTimer:
-RelayTimer pump(PUMPRELAYPIN, msPumpOnTime, msPumpOffTime);
+
 RelayTimer light(LIGHTRELAYPIN, msLightOnTime, msLightOffTime);
+RelayTimer pumpGermination(PUMPRELAYPIN, msPumpOnTime, msGerminationPumpOffTime);
+RelayTimer pumpGrow(PUMPRELAYPIN, msPumpOnTime, msGrowPumpOffTime);
+RelayTimer pumpHarvest(PUMPRELAYPIN, msPumpOnTime, msHarvestPumpOffTime);
+
 
 // Simple Arduino Morse Beacon
 // ****** Morse Beacon Begins ******
@@ -205,9 +220,16 @@ void setup()
   pinMode(BUTTONPIN, INPUT_PULLUP);
   pinMode(HEATRELAYPIN, OUTPUT);
   pinMode(FANRELAYPIN, OUTPUT);
+  // Note: Pump pin and Light pin are defined in RelayTimer class
 
+  // Version ID
+  Serial.println("20190510 MicrogreenBox");
+  Serial.println("https://github.com/skyl4rk/MicrogreenBox.git");
+  Serial.print("Heat Set Point: ");   Serial.println(HEATSETPOINT);
+  
   // INITIAL PUMP RUN ON RESET
   Serial.print("Initial Pump Run for ms: "); Serial.println(msPumpOnTime);
+  Serial.println("Pausing for Pump Run...");
   digitalWrite(PUMPRELAYPIN, HIGH);
   delay(msPumpOnTime);
   digitalWrite(PUMPRELAYPIN, LOW);
@@ -220,16 +242,8 @@ void setup()
 void loop()
 {
 
-  // Call Update for each instance of the class RelayTimer:
-
-  pump.Update();
-
-  // Start light timer after start time delay (stay dark during germination)
-  if(millis() > msLightStartTime){
-    light.Update();
-  }
-
   // Read thermistor 100 times and take the average to reduce sensor readout variation and reduce relay chatter
+
   long average = 0;
   for (int i=0; i < 100; i++) {
   average = average + analogRead(THERMISTORPIN);
@@ -237,7 +251,20 @@ void loop()
   }
   average = average / 100;
 
-  // Check thermistor and start heat if below set point
+  // Get current elapsed loop time
+  
+  unsigned long currentTime = millis();
+
+  // ************ Germination Phase Operation
+
+  if(currentTime < msGrowPhase){
+    //do germination phase operations here
+    
+    pumpGermination.Update();
+
+    Serial.println("Germination Phase");
+
+      // Check thermistor and start heat if below set point
   if(average < HEATSETPOINT && digitalRead(HEATRELAYPIN) == LOW){
     digitalWrite(HEATRELAYPIN, HIGH);
     Serial.print(average); Serial.println(" Heat On ++++++++++++++");
@@ -256,42 +283,95 @@ void loop()
     digitalWrite(FANRELAYPIN, LOW);
     Serial.print(average); Serial.println(" Fan Off");
   }
+  }
 
-  // DEBUG
-//  Serial.print("Pin 0:"); Serial.print(analogRead(0)); Serial.print(" Pin 2: "); Serial.println(analogRead(2));
+
+  // ******************* Grow Phase Operation
+
+  if(currentTime > msGrowPhase && currentTime < msHarvestPhase){
+
+    //do grow phase operations here
+
+    pumpGrow.Update();
     
-  // Serial.print("Ave: "); 
-  Serial.print(average);
+    Serial.println("Grow Phase");
+    
+      // Check thermistor and start heat if below set point
+  if(average < HEATSETPOINT && digitalRead(HEATRELAYPIN) == LOW){
+    digitalWrite(HEATRELAYPIN, HIGH);
+    Serial.print(average); Serial.println(" Heat On ++++++++++++++");
+    }
+  if(average > HEATSETPOINT + HYSTERESIS && digitalRead(HEATRELAYPIN) == HIGH){
+    digitalWrite(HEATRELAYPIN, LOW);
+    Serial.print(average); Serial.println(" Heat Off -------------");
+    }
   
-  if(digitalRead(HEATRELAYPIN)){
+  // Check thermistor and shut down fan if below set point, start fan if above set point + hysterisis 
+  if(average > HEATSETPOINT + HYSTERESIS && digitalRead(FANRELAYPIN) == LOW){
+    digitalWrite(FANRELAYPIN, HIGH);
+    Serial.print(average); Serial.println(" Fan On ----------------");
+  }
+  if(average < HEATSETPOINT + HYSTERESIS - HYSTERESIS && digitalRead(FANRELAYPIN) == HIGH){
+    digitalWrite(FANRELAYPIN, LOW);
+    Serial.print(average); Serial.println(" Fan Off ++++++++++++++++");
+  }
+    
+  }
+
+  // ************************** Harvest Phase Operation
+
+  // Note: currently no heat, with fan on full time
+
+  if(currentTime > msHarvestPhase){
+    
+    //do harvest phase operations here
+
+    pumpHarvest.Update();
+    digitalWrite(FANRELAYPIN, HIGH);
+ 
+    Serial.println("Harvest Phase");
+    
+  }
+  
+
+  // Light Timer
+  
+  // Start light timer after start time delay (stay dark during germination)
+ 
+  if(currentTime > msLightStartTime){
+    light.Update();
+  }
+
+  // Print Status to Serial Monitor
+    
+  Serial.print(average);
+    if(digitalRead(HEATRELAYPIN)){
     Serial.println(" HEAT ON");
   }
   if(digitalRead(FANRELAYPIN)){
     Serial.println(" FAN ON");
   }
 
-  // Check if button has been pressed, if so, run pump
+  Serial.print(HEATSETPOINT); Serial.println(" HEATSETPOINT");
+
+  // Manual Pump Activation: check if button has been pressed, if so, run pump
+  
   if(digitalRead(BUTTONPIN) == LOW){
     digitalWrite(HEATRELAYPIN, LOW);  // Turn off heat during pump activation
     digitalWrite(FANRELAYPIN, LOW);   // Turn off fan during pump activation
     digitalWrite(PUMPRELAYPIN, HIGH); // Run pump for period defined in PUMPONTIME
+    Serial.println("Manual Pump Activiation, Pausing Loop...");
     delay(msPumpOnTime);
-    digitalWrite(PUMPRELAYPIN, LOW);
+    digitalWrite(PUMPRELAYPIN, LOW);  // Shut pump off and return to loop
   }
-
   
     // ****** Morse Beacon Begins ******
-    //char message[] = "1234568"; // worked
-    int morseI = 57; // set integer variable to be read out equal to morseI here
-    
-    char airTempMessage[21]; // enough to hold all numbers up to 64-bits
+    char airTempMessage[21]; 
     itoa(average, airTempMessage, 10);
-    Serial.println("Sending Morse");
+    Serial.println("Sending Morse...");
     sendmsg("A ");
     sendmsg(airTempMessage);
     Serial.println("");
     // ****** Morse Beacon Ends ******
     
-//  delay(1000);                         // Loop delay
-
 }
