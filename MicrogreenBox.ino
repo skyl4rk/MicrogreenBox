@@ -3,7 +3,7 @@
 // pc fan ventilation and LED strip lights to automate microgreen production.
 
 #define HEATSETPOINT 322         // Thermistor setting below which heater is turned on, unit is a sensor setting, not a temperature
-#define HYSTERESIS 10            // HEATSETPOINT + HYSTERESIS is when the heat turns off and the fan turns on, unit is a sensor setting, not a temperature
+#define HYSTERESIS 8            // HEATSETPOINT + HYSTERESIS is when the heat turns off and the fan turns on, unit is a sensor setting, not a temperature
 #define PUMPONTIME 60            // Seconds. Run pump for X seconds - example: 60 seconds
 // #define PUMPOFFTIME 6         // Hours. Pause pump for X hours - example: 6 hours
 #define LIGHTONTIME 16           // Hours. Run light for X hours - example: 16 hours
