@@ -2,7 +2,7 @@
 // Controller for a microgreen grow chamber using a flood and drain pump, seedling mat heaters,
 // pc fan ventilation and LED strip lights to automate microgreen production.
 
-#define HEATSETPOINT 304         // Thermistor setting below which heater is turned on, unit is a sensor setting, not a temperature - Left 320, Right 303
+#define HEATSETPOINT 320         // Thermistor setting below which heater is turned on, unit is a sensor setting, not a temperature - Left 320, Right 303
 #define HYSTERESIS 4            // HEATSETPOINT + HYSTERESIS is when the heat turns off and the fan turns on, unit is a sensor setting, not a temperature
 #define PUMPONTIME 60            // Seconds. Run pump for X seconds - example: 60 seconds
 #define LIGHTONTIME 16           // Hours. Run light for X hours - example: 16 hours
@@ -13,7 +13,7 @@
 #define HARVESTPHASE 9           // Day. The day on which the harvest phase begins - example: Day 9
 #define GERMINATIONPUMPOFF 6     // Hours. Pause pump for X hours - example: 6 hours
 #define GROWPUMPOFF 6            // Hours. Pause pump for X hours - example: 6 hours
-#define HARVESTPUMPOFF 28        // Hours. Pause pump for X hours - example: 6 hours
+#define HARVESTPUMPOFF 12        // Hours. Pause pump for X hours - example: 6 hours
 #define SUNLIGHTBOOST 4          // The number of heatSensor points to increase the HEATSETPOINT during the Grow Phase while light is on - example: 4 sensor points
 #define GERMINATIONFANON 5       // Seconds to run fan during germination phase
 #define GERMINATIONFANOFF 10     // Minutes to wait between fan runs during germination
