@@ -2,23 +2,27 @@
 // Controller for a microgreen grow chamber using a flood and drain pump, seedling mat heaters,
 // pc fan ventilation and LED strip lights to automate microgreen production.
 
-#define HEATSETPOINT 320         // Thermistor setting below which heater is turned on, unit is a sensor setting, not a temperature - Left 320, Right 303
-#define HYSTERESIS 4            // HEATSETPOINT + HYSTERESIS is when the heat turns off and the fan turns on, unit is a sensor setting, not a temperature
-#define PUMPONTIME 60            // Seconds. Run pump for X seconds - example: 60 seconds
+#define HEATSETPOINT 307         // Thermistor setting below which heater is turned on, unit is a sensor setting, not a temperature - Left 316, Right 303
+#define HYSTERESIS 2             // HEATSETPOINT + HYSTERESIS is when the heat turns off and the fan turns on, unit is a sensor setting, not a temperature
+#define SUNLIGHTBOOST 6          // The number of heatSensor points to increase the HEATSETPOINT during the Grow Phase while light is on - example: 4 sensor points
+
 #define LIGHTONTIME 16           // Hours. Run light for X hours - example: 16 hours
 #define LIGHTOFFTIME 8           // Hours. Pause light for X hours - example: 8 hours
 #define LIGHTSTARTTIME 5         // Days. Wait X days before starting light cycle - example: 5 days
 
 #define GROWPHASE 5              // Day. The day on which the germination phase ends and the grow phase begines - example: Day 5
 #define HARVESTPHASE 9           // Day. The day on which the harvest phase begins - example: Day 9
+
+#define PUMPONTIME 60            // Seconds. Run pump for X seconds - example: 60 seconds
 #define GERMINATIONPUMPOFF 6     // Hours. Pause pump for X hours - example: 6 hours
-#define GROWPUMPOFF 6            // Hours. Pause pump for X hours - example: 6 hours
-#define HARVESTPUMPOFF 12        // Hours. Pause pump for X hours - example: 6 hours
-#define SUNLIGHTBOOST 4          // The number of heatSensor points to increase the HEATSETPOINT during the Grow Phase while light is on - example: 4 sensor points
+#define GROWPUMPOFF 8            // Hours. Pause pump for X hours - example: 8 hours
+#define HARVESTPUMPOFF 14        // Hours. Pause pump for X hours - example: 14 hours
+
+#define FANCOOLSET 15            // Thermistor sensor setting points above HEATSETPOINT to start fan
 #define GERMINATIONFANON 5       // Seconds to run fan during germination phase
 #define GERMINATIONFANOFF 10     // Minutes to wait between fan runs during germination
-#define GROWFANON 5       // Seconds to run fan during grow phase
-#define GROWFANOFF 5     // Minutes to wait between fan runs during grow phase
+#define GROWFANON 10             // Seconds to run fan during grow phase
+#define GROWFANOFF 5             // Minutes to wait between fan runs during grow phase
 
 #define HEATRELAYPIN 4           // Heat relay pin number
 #define FANRELAYPIN 5            // Fan relay pin number
@@ -51,6 +55,7 @@ unsigned long msGrowFanOffTime = GROWFANOFF * msMinute;
 
 int msSunlightSetpoint = HEATSETPOINT + SUNLIGHTBOOST;
 int hysteresis = HYSTERESIS;
+int fanSetPoint = HEATSETPOINT + FANCOOLSET;
 
 // Declare the class RelayTimer
 
@@ -235,7 +240,7 @@ void setup()
   // Note: Pump pin and Light pin are defined in RelayTimer class
 
   // Version ID
-  Serial.println("20190530 MicrogreenBox");
+  Serial.println("20190615 MicrogreenBox");
   Serial.println("https://github.com/skyl4rk/MicrogreenBox.git");
   Serial.print("Heat Set Point: ");   Serial.println(HEATSETPOINT);
 
@@ -256,12 +261,12 @@ void loop()
 
   // Read thermistor 100 times and take the average to reduce sensor readout variation and reduce relay chatter
 
-  long average = 0;
+  long sensorSum = 0;
   for (int i = 0; i < 100; i++) {
-    average = average + analogRead(THERMISTORPIN);
+    sensorSum = sensorSum + analogRead(THERMISTORPIN);
     delay(10);
   }
-  int heatSensor = average / 100;
+  int heatSensor = sensorSum / 100;
 
   // Get current elapsed loop time
 
@@ -278,50 +283,12 @@ void loop()
     Serial.println("Germination Phase");
 
     // Check thermistor and start heat if below set point
-    if (heatSensor < HEATSETPOINT && digitalRead(HEATRELAYPIN) == LOW) {
-      digitalWrite(HEATRELAYPIN, HIGH);
-      Serial.print(heatSensor); Serial.println(" Heat On ++++++++++++++");
-    }
-    if (heatSensor > HEATSETPOINT + HYSTERESIS && digitalRead(HEATRELAYPIN) == HIGH) {
+    if (heatSensor > fanSetPoint) {
+      digitalWrite(FANRELAYPIN, HIGH);
       digitalWrite(HEATRELAYPIN, LOW);
-      Serial.print(heatSensor); Serial.println(" Heat Off -------------");
+      Serial.print(heatSensor); Serial.println(" Cooling Fan On --------------");
     }
-
-  }
-
-
-  // ******************* Grow Phase Operation ****************
-
-  if (currentTime > msGrowPhase && currentTime < msHarvestPhase) {
-
-    //do grow phase operations here
-
-    pumpGrow.Update();
-    fanGermination.Update();
-
-    Serial.println("Grow Phase");
-
-    // Lights on during Grow Phase Heat Boost Operation
-
-    if (digitalRead(LIGHTRELAYPIN) == HIGH) {
-      // Check thermistor and start heat if below set point
-
-      if (heatSensor < msSunlightSetpoint && digitalRead(HEATRELAYPIN) == LOW) {
-        digitalWrite(HEATRELAYPIN, HIGH);
-        Serial.print(heatSensor); Serial.println(" Heat On ++++++++++++++");
-      }
-      if (heatSensor > msSunlightSetpoint + hysteresis && digitalRead(HEATRELAYPIN) == HIGH) {
-        digitalWrite(HEATRELAYPIN, LOW);
-        Serial.print(heatSensor); Serial.println(" Heat Off -------------");
-      }
-
-      Serial.println("SUNLIGHT BOOST");
-    }
-
     else {
-
-      // Lights off during Grow Phase Operation
-      // Check thermistor and start heat if below set point
       if (heatSensor < HEATSETPOINT && digitalRead(HEATRELAYPIN) == LOW) {
         digitalWrite(HEATRELAYPIN, HIGH);
         Serial.print(heatSensor); Serial.println(" Heat On ++++++++++++++");
@@ -333,22 +300,72 @@ void loop()
     }
   }
 
+
+  // ******************* Grow Phase Operation ****************
+
+  if (currentTime > msGrowPhase && currentTime < msHarvestPhase) {
+    Serial.println("Grow Phase");
+    //do grow phase operations here
+
+    pumpGrow.Update();
+    fanGermination.Update();
+
+    // High Temp Fan Override
+    if (heatSensor > fanSetPoint) {
+      digitalWrite(FANRELAYPIN, HIGH);
+      digitalWrite(HEATRELAYPIN, LOW);
+      Serial.print(heatSensor); Serial.println(" Cooling Fan On --------------");
+    }
+
+    // GROW PHASE LIGHTS ON
+    // Sunlight Heat Boost Operation
+
+    if (digitalRead(LIGHTRELAYPIN) == HIGH) {
+      Serial.println("SUNLIGHT BOOST");
+
+      // Check thermistor and start heat if below sunlight boost set point
+      if (heatSensor < msSunlightSetpoint && digitalRead(HEATRELAYPIN) == LOW) {
+        digitalWrite(HEATRELAYPIN, HIGH);
+        Serial.print(heatSensor); Serial.println(" Sunlight Boost Heat On ++++++++++++++");
+      }
+      // Check thermistor and stop heat if above sunlight boost setpoint plus hysteresis
+      if (heatSensor > msSunlightSetpoint + hysteresis && digitalRead(HEATRELAYPIN) == HIGH) {
+        digitalWrite(HEATRELAYPIN, LOW);
+        Serial.print(heatSensor); Serial.println(" Sunlight Boost Heat Off -------------");
+      }
+    }
+
+    // GROW PHASE LIGHTS OFF
+    // Lights off during Grow Phase Operation
+    if (digitalRead(LIGHTRELAYPIN) == LOW) {
+
+      // Check thermistor and start heat if below set point
+      if (heatSensor < HEATSETPOINT && digitalRead(HEATRELAYPIN) == LOW) {
+        digitalWrite(HEATRELAYPIN, HIGH);
+        Serial.print(heatSensor); Serial.println(" Heat On ++++++++++++++");
+      }
+      // Check thermistor and stop heat if above set point plus hysteresis
+      if (heatSensor > HEATSETPOINT + HYSTERESIS && digitalRead(HEATRELAYPIN) == HIGH) {
+        digitalWrite(HEATRELAYPIN, LOW);
+        Serial.print(heatSensor); Serial.println(" Heat Off -------------");
+      }
+    }
+  }
+  //***********************************************************
+
   // ***************** Harvest Phase Operation ****************
 
   // Note: no heat, with fan on full time
 
   if (currentTime > msHarvestPhase) {
+    Serial.println("Harvest Phase");
 
     //do harvest phase operations here
-
     pumpHarvest.Update();
     digitalWrite(HEATRELAYPIN, LOW);
     digitalWrite(FANRELAYPIN, HIGH);
-
-    Serial.println("Harvest Phase");
-
   }
-
+  //***********************************************************
 
   // Light Timer
 
