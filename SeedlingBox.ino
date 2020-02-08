@@ -1,25 +1,26 @@
-// MicrogreenBox
-// Controller for a Arduino controlled microgreen growth chamber using a flood and drain pump, seedling mat heaters,
+// SeedlingBox
+// Controller for a seed starting growth chamber using a flood and drain pump, seedling mat heaters,
 // pc fan ventilation and LED strip lights to automate microgreen production.
+// This sketch is a modification of MicrogreenBox.  It runs only in grow phase and starts light cycle immediately. Sunlightboost is disabled.
 
-#define HEATSETPOINT 296         // Thermistor setting below which heater is turned on, unit is a sensor setting, not a temperature -
+#define HEATSETPOINT 300         // Thermistor setting below which heater is turned on, unit is a sensor setting, not a temperature 
 #define HYSTERESIS 2             // HEATSETPOINT + HYSTERESIS is when the heat turns off and the fan turns on, unit is a sensor setting, not a temperature
-#define SUNLIGHTBOOST 4          // The number of heatSensor points to increase the HEATSETPOINT during the Grow Phase while light is on - example: 4 sensor points
+#define SUNLIGHTBOOST 0          // The number of heatSensor points to increase the HEATSETPOINT during the Grow Phase while light is on - example: 4 sensor points
 
-#define LIGHTONTIME 16           // Hours. Run light for X hours - example: 16 hours on
-#define LIGHTOFFTIME 8           // Hours. Pause light for X hours - example: 8 hours off
-#define LIGHTSTARTTIME 6         // Days. Wait X days before starting light cycle - example: 5 days
+#define LIGHTONTIME 16           // Hours. Run light for X hours - example: 16 hours
+#define LIGHTOFFTIME 8           // Hours. Pause light for X hours - example: 8 hours
+#define LIGHTSTARTTIME 0         // Days. Wait X days before starting light cycle - example: 5 days
 
-#define GROWPHASE 5              // Day. The day on which the germination phase ends and the grow phase begines - example: Day 5
-#define HARVESTPHASE 9           // Day. The day on which the harvest phase begins - example: Day 9
+#define GROWPHASE 0              // Day. The day on which the germination phase ends and the grow phase begines - example: Day 5
+#define HARVESTPHASE 365         // Day. The day on which the harvest phase begins - example: Day 9
 
 #define PUMPONTIME 60            // Seconds. Run pump for X seconds - example: 60 seconds
 #define GERMINATIONPUMPOFF 6     // Hours. Pause pump for X hours - example: 6 hours
-#define GROWPUMPOFF 8            // Hours. Pause pump for X hours - example: 6 hours
+#define GROWPUMPOFF 96            // Hours. Pause pump for X hours - example: 6 hours
 #define HARVESTPUMPOFF 12        // Hours. Pause pump for X hours - example: 6 hours
 
 #define GERMINATIONFANON 5       // Seconds to run fan during germination phase
-#define GERMINATIONFANOFF 15      // Minutes to wait between fan runs during germination
+#define GERMINATIONFANOFF 5      // Minutes to wait between fan runs during germination
 #define GROWFANON 5              // Seconds to run fan during grow phase
 #define GROWFANOFF 15             // Minutes to wait between fan runs during grow phase
 
@@ -28,9 +29,9 @@
 #define LIGHTRELAYPIN 6          // Light relay pin number
 #define PUMPRELAYPIN 7           // Pump relay pin number
 
-#define PUMPBUTTONPIN 12             // Button grounds out this pin, NOTE: pin mode is INPUT_PULLUP
+#define BUTTONPIN 12             // Button grounds out this pin, NOTE: pin mode is INPUT_PULLUP
 #define THERMISTORPIN 0          // Thermistor pin number, put thermistor at seed level in sunflower tray
-// Note: thermistor is connected to +3.3V and pin, with 10k ohm resistor from pin to ground
+// Note: thermistor is connected to 3.3V and with 10k ohm resistor to ground
 
 const unsigned long msDay = 86400000;  // Number of milliseconds in a day: 86400000
 const unsigned long msHour = 3600000;  // Number of milliseconds in an hour: 3600000
@@ -123,7 +124,7 @@ RelayTimer fanGrow(FANRELAYPIN, msGrowFanOnTime, msGrowFanOffTime);
 #define DOTLEN  (1200/SPEED)
 #define DASHLEN  (4*(1200/SPEED))
 
-int morseLEDpin = 13 ; // CONNECT LED AND 220 OHM RESISTOR FROM THIS PIN TO GROUND
+int morseLEDpin = 13 ;
 
 struct t_mtab {
   char c, pat;
@@ -233,27 +234,25 @@ void setup()
 {
   Serial.begin(9600);
   pinMode(THERMISTORPIN, INPUT);
-  pinMode(PUMPBUTTONPIN, INPUT_PULLUP);
+  pinMode(BUTTONPIN, INPUT_PULLUP);
   pinMode(HEATRELAYPIN, OUTPUT);
   pinMode(FANRELAYPIN, OUTPUT);
   // Note: Pump pin and Light pin are defined in RelayTimer class
 
   // Version ID
-  Serial.println("20200208 MicrogreenBox");
+  Serial.println("20290207 MicrogreenBox");
   Serial.println("https://github.com/skyl4rk/MicrogreenBox.git");
   Serial.print("Heat Set Point: ");   Serial.println(HEATSETPOINT);
 
+  // START LIGHT ON RESET
+  digitalWrite(LIGHTRELAYPIN, HIGH);
+  
   // INITIAL PUMP RUN ON RESET (DISABLED WHEN COMMENTED OUT)
   // Serial.print("Initial Pump Run for ms: "); Serial.println(msPumpOnTime);
   // Serial.println("Pausing for Pump Run...");
   // digitalWrite(PUMPRELAYPIN, HIGH);
   // delay(msPumpOnTime);
-
   digitalWrite(PUMPRELAYPIN, LOW);
-
-  // START LIGHT AT SETUP (DISABLED WHEN COMMENTED OUT)
-  // THIS WILL RUN LIGHT THROUGH GERMINATION PHASE, WHICH MAY NOT BE DESIRABLE
-  //   digitalWrite(LIGHTRELAYPIN, HIGH);
 
   // ****** Morse Beacon Begins ******
   pinMode(morseLEDpin, OUTPUT) ;
@@ -287,16 +286,15 @@ void loop()
     Serial.println("Germination Phase");
 
     // Check thermistor and start heat if below set point
-    if (heatSensor < heatsetpoint && digitalRead(HEATRELAYPIN) == LOW) {
+    if (heatSensor < HEATSETPOINT && digitalRead(HEATRELAYPIN) == LOW) {
       digitalWrite(HEATRELAYPIN, HIGH);
       Serial.print(heatSensor); Serial.println(" Heat On ++++++++++++++");
     }
-    if (heatSensor > heatsetpoint + HYSTERESIS && digitalRead(HEATRELAYPIN) == HIGH) {
+    if (heatSensor > HEATSETPOINT + HYSTERESIS && digitalRead(HEATRELAYPIN) == HIGH) {
       digitalWrite(HEATRELAYPIN, LOW);
       Serial.print(heatSensor); Serial.println(" Heat Off -------------");
     }
   }
-
 
   // ******************* Grow Phase Operation ****************
 
@@ -309,7 +307,7 @@ void loop()
 
     Serial.println("Grow Phase");
 
-    // GROW PHASE HEAT BOOST WHEN LIGHTS ARE ON
+    // Lights on during Grow Phase Heat Boost Operation
 
     if (digitalRead(LIGHTRELAYPIN) == HIGH) {
       // Check thermistor and start heat if below set point
@@ -334,7 +332,7 @@ void loop()
         digitalWrite(HEATRELAYPIN, HIGH);
         Serial.print(heatSensor); Serial.println(" Heat On ++++++++++++++");
       }
-      if (heatSensor > heatsetpoint + HYSTERESIS && digitalRead(HEATRELAYPIN) == HIGH) {
+      if (heatSensor > heatsetpoint + hysteresis && digitalRead(HEATRELAYPIN) == HIGH) {
         digitalWrite(HEATRELAYPIN, LOW);
         Serial.print(heatSensor); Serial.println(" Heat Off -------------");
       }
@@ -374,11 +372,12 @@ void loop()
   if (digitalRead(FANRELAYPIN)) {
     Serial.println(" FAN ON");
   }
+
   Serial.print(HEATSETPOINT); Serial.println(" HEATSETPOINT");
 
   // Manual Pump Activation: check if button has been pressed, if so, run pump
 
-  if (digitalRead(PUMPBUTTONPIN) == LOW) {
+  if (digitalRead(BUTTONPIN) == LOW) {
     digitalWrite(HEATRELAYPIN, LOW);  // Turn off heat during pump activation
     digitalWrite(FANRELAYPIN, LOW);   // Turn off fan during pump activation
     digitalWrite(PUMPRELAYPIN, HIGH); // Run pump for period defined in PUMPONTIME
